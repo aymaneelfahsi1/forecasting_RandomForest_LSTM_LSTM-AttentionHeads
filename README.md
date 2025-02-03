@@ -1,6 +1,11 @@
 # Forecasting Notebook
 
-This repository contains a Jupyter Notebook that demonstrates time series forecasting using multiple approaches, including Random Forest, LSTM with attention, and Transformer-based architectures. The notebook covers data preparation, feature engineering, model training, iterative forecasting, inversion of scaled predictions, and evaluation & visualization of both continuous and categorical forecasts.
+This repository contains a Jupyter Notebook that demonstrates iterative time series forecasting using three different models:  
+- **Random Forest**,  
+- **LSTM**, and  
+- **LSTM with Attention**.
+
+Each model is applied in an iterative forecasting setup where the most recent window of data is updated with each new forecast to predict future days. The notebook covers data preparation, feature engineering, model training, inversion (unscaling) of predictions, and evaluation & visualization of both continuous and categorical outputs.
 
 ## Table of Contents
 
@@ -9,73 +14,80 @@ This repository contains a Jupyter Notebook that demonstrates time series foreca
 - [Feature Engineering](#feature-engineering)
 - [Models](#models)
   - [Random Forest Forecasting](#random-forest-forecasting)
+  - [LSTM Forecasting](#lstm-forecasting)
   - [LSTM Forecasting with Attention](#lstm-forecasting-with-attention)
-  - [Transformer Forecasting with Iterative Approach](#transformer-forecasting-with-iterative-approach)
+- [Iterative Forecasting Approach](#iterative-forecasting-approach)
 - [Evaluation and Visualization](#evaluation-and-visualization)
 
 
 ## Overview
 
-This notebook demonstrates how to forecast daily time series data using multiple models. It includes:
-- Data scaling with different scalers for various feature types.
-- Feature engineering by creating lag features, time-based features, and encoding categorical variables.
-- Building sequences for deep learning models.
-- Training forecasting models such as Random Forest, LSTM (with attention), and Transformer.
-- Implementing iterative forecasting by updating the input window with previous predictions.
-- Inverting (unscaling) predictions to their original scale.
-- Evaluating forecasts with metrics such as RMSE, MAE, and MAPE.
-- Visualizing both continuous and categorical forecast performance.
+This notebook demonstrates iterative forecasting on daily time series data using three different approaches. For each method, the forecasting process starts with the last window of training data and updates that window day by day with the model's predictions. The models predict multiple outputs (both continuous and categorical targets), and the predictions are later inverted (unscaled) back to the original scale for evaluation.
 
 ## Data Preparation
 
-The raw data (`daily_df`) includes columns such as:
-- **Date** (not scaled)
-- **Revenue**, **Units Sold**, **Unit Price**
-- Categorical features (e.g., Product Category, Product Name, Region, Payment Method)
-- Engineered lag features (e.g., `Revenue_lag_1`, `UnitsSold_lag_1`, etc.)
-
-Different scaling methods are applied:
-- **RobustScaler** is used for features like **Revenue** and **Unit Price**.
-- **MinMaxScaler** (or alternatives) is used for **Units Sold**.
+- **Input Data:**  
+  The raw data is contained in a DataFrame (`daily_df`) with columns such as Date, Revenue, Units Sold, Unit Price, and various categorical features.
+  
+- **Scaling:**  
+  Different scaling methods are applied based on the feature type. For example, RobustScaler is used for Revenue and Unit Price, while MinMaxScaler (or alternatives) is applied for Units Sold.
 
 ## Feature Engineering
 
-Lag features are generated over a defined window (e.g., 60 days) in an interleaved manner:
-[Revenue_lag_1, UnitsSold_lag_1, Revenue_lag_2, UnitsSold_lag_2, …]
-Exogenous features include time components (e.g., Month, DayOfWeek, IsWeekend), the current unit price, and one-hot encoded categorical features. These are concatenated to form the complete feature vector for model training.
+- **Lag Features:**  
+  Lag features are created over a specified window (e.g., 60 days) in an interleaved manner (e.g., `[Revenue_lag_1, UnitsSold_lag_1, Revenue_lag_2, UnitsSold_lag_2, …]`).
+  
+- **Exogenous Features:**  
+  In addition to lag features, exogenous features such as time components (Month, Day, DayOfWeek, IsWeekend), the current Unit Price, and one-hot encoded categorical features are included.
+  
+- **Target Columns:**  
+  The target columns are defined as continuous targets (Revenue_target, UnitsSold_target) followed by categorical targets (e.g., for Product Category, Product Name, Region, and Payment Method).
 
 ## Models
 
 ### Random Forest Forecasting
 
-- **Training:**  
-  A Random Forest model is trained on a feature vector that combines interleaved lag features and exogenous features.
+- **Description:**  
+  A Random Forest model is trained on the full feature vector (lag features combined with exogenous features).  
 - **Iterative Forecasting:**  
-  The forecasting procedure starts with the last training window. Predictions are made day-by-day, and the forecasted continuous values update the lag vector for subsequent predictions.
-- **Feature Importance:**  
-  Feature importances are extracted (excluding lag features) and visualized.
+  Starting from the last training window, the model forecasts one day at a time. After each forecast, the continuous predictions update the lag vector for the next day.
+
+### LSTM Forecasting
+
+- **Description:**  
+  A multi-layer LSTM network is used to forecast the targets.  
+- **Iterative Forecasting:**  
+  The LSTM model is deployed in an iterative loop where the forecasted continuous outputs are used to update the input window for subsequent predictions.
 
 ### LSTM Forecasting with Attention
 
-- **Architecture:**  
-  A multi-layer LSTM model (with dropout and dense layers) is built, with an added attention mechanism to focus on the most relevant parts of the sequence.
+- **Description:**  
+  An LSTM model enhanced with an attention mechanism is implemented to help the model focus on the most relevant parts of the sequence.  
 - **Iterative Forecasting:**  
-  The LSTM model is applied in an iterative loop where the window is updated with predicted values.
+  Like the other models, the LSTM with attention is used in an iterative forecasting loop, updating the window with each new prediction.
 
-### Transformer Forecasting with Iterative Approach
+## Iterative Forecasting Approach
 
-- **Architecture:**  
-  A Transformer model is implemented with positional encoding, multi-head attention, and feed-forward blocks.
-- **Iterative Forecasting:**  
-  The model predicts one day at a time, and the output is used to update the input sequence for subsequent forecasts.
+For all three models, the iterative forecasting procedure works as follows:
+1. **Initialization:**  
+   The forecast starts with the last window of training data (which includes interleaved lag features).
+2. **Iteration:**  
+   For each day in the test set:
+   - Extract exogenous features from the test day.
+   - Construct a full feature vector by concatenating the current lag vector and the exogenous features.
+   - Generate a forecast for the next day.
+   - Update the lag vector with the newly forecasted continuous targets.
+3. **Output:**  
+   This process repeats for each day in the test set, yielding a series of iterative predictions.
 
 ## Evaluation and Visualization
 
-Evaluation metrics are computed on the **unscaled** (inverted) predictions:
-- **Continuous Metrics:**  
-  RMSE, MAE, and MAPE are computed on the inverted values for Revenue and Units Sold.
-- **Categorical Metrics:**  
-  Categorical predictions are decoded using argmax and compared against true values.
+- **Continuous Evaluation:**  
+  The scaled continuous predictions (Revenue and Units Sold) are inverted (unscaled) back to their original scale. Evaluation metrics such as RMSE, MAE, and MAPE are then computed.
+  
+- **Categorical Evaluation:**  
+  Categorical outputs are decoded using argmax, and prediction accuracy is computed.
+  
 - **Visualization:**  
-  The notebook provides plots comparing actual vs. predicted values and bar charts for categorical accuracies, as well as a comparison table for the first several test days.
+  The notebook includes plots comparing actual vs. predicted continuous targets and bar charts for categorical prediction accuracies. A comparison table for the first several test days is also provided.
 
